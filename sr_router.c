@@ -455,7 +455,7 @@ void sr_send_icmp(struct sr_instance* sr, struct sr_packet* pkt, enum sr_icmp_ty
   /* free */
   free(icmp);
 
-}
+} /*---helper10: sr_send_icmp---*/
 /* ****** Pseudo-code in sr_arpcache.h 
 function handle_arpreq(req):
        if difftime(now, req->sent) > 1.0
