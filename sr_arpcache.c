@@ -13,10 +13,28 @@
 
 /* This function gets called every second. For each request sent out, we keep
   checking whether we should resend an request or destroy the arp request.
-  See pseudo-code in sr_arpcache.h 
+  Pseudo-code in sr_arpcache.h 
+  void sr_arpcache_sweepreqs(struct sr_instance *sr) {
+       for each request on sr->cache.requests:
+           handle_arpreq(request)
+   }
 */
+/* **************************************************************
+ * Function Name: sr_arpcache_sweepreqs
+ * Type: Global
+ * Consumes: 
+ * struct sr_instance* sr: the simple router working with
+ * Action: 
+ * see pseudo-code above
+ * **************************************************************
+ */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
-  /* TODO: Fill this in */
+  struct sr_arpreq* cur = sr->cache.requests;
+  while(cur){
+    struct sr_arpreq* tmp = cur->next;
+    sr_handle_arpreq(sr, cur);
+    cur = tmp;
+  }
  
 }
 
