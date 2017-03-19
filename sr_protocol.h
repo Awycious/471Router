@@ -77,7 +77,21 @@
 
 #define ICMP_DATA_SIZE 28
 
-/* TODO: Add more constants, structs, enums */
+/* Added constants, structs, enums */
+enum sr_icmp_type{
+  icmp_type_unreachable = 3;
+  icmp_type_ttl = 11;
+  icmp_type_echo_reply = 0;
+  icmp_type_echo_req = 8;
+
+};
+enum sr_icmp_code{
+  icmp_code_net_unreach = 0;
+  icmp_code_host_unreach = 1;
+  icmp_code_port_unreach = 3;
+  icmp_code_ttl = 0;
+  icmp_code_other = 0;
+};
 
 /* Structure of a ICMP header
  */
