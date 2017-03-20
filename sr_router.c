@@ -67,8 +67,8 @@
  *  1. sr_instance sr: the sr instance used
  *  2. enum sr_arp_opcode opcode: request or reply
  *  3. char* iface: interface of the target ip
- *  3. unsigned char* target_addr: destination address
- *  4. uint32_t target_ip: the destination ip address 
+ *  4. unsigned char* target_addr: destination address
+ *  5. uint32_t target_ip: the destination ip address 
  * Action:
  * send a arp to the destination ip of the request
  */
@@ -357,7 +357,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * pkt, unsigned int len, char*
     memcpy(buf + 4, ip_hdr, ip_hdr_len + SMALL_SUB);
 
     /* send */
-    sr_send_icmp(); /* helper 10 is called */
+    sr_send_icmp(sr, pkt, icmp_type_ttl, icmp_code_ttl); /* helper 10 is called */
 
     /* free */
     free(buf);
@@ -384,6 +384,11 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * pkt, unsigned int len, char*
     struct sr_ethernet_hdr* ether_hdr = (sr_ethernet_hdr_t *) tmp;
     struct sr_if* iface = sr_get_interface(sr, lpm->interface);
     memcpy(ether_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+
+    /* send */
+    sr_send_packet_helper(sr, tmp, len, lpm->interface, lpm->gw.s_addr);
+
+    /* free */
     free(tmp);
 
   } else {
@@ -455,8 +460,58 @@ void sr_send_icmp(struct sr_instance* sr, struct sr_packet* pkt, enum sr_icmp_ty
   /* free */
   free(icmp);
 
-} /*---helper10: sr_send_icmp---*/
-/* ****** Pseudo-code in sr_arpcache.h 
+}
+/* ****** helper 11: sr_handle_arp **************************
+ * Consumes:
+ * 1. struct sr_instance* sr: sr
+ * 2. uint8_t* packet: the arp packet 
+ * 3. unsigned int len: length of arp packet
+ * 4. char* interface: the receiving interface
+ * Actions:
+ * help sr_handlepacket to handle arp type packet, do the following:
+ * 1. Justisfy if the arp packet is a request or a reply
+ * 2. If the arp packet is a request, store the arp information 
+ *    into the arpcache and send reply
+ * 3. If the arp packet is a reply, only store the infortmation
+ */
+void sr_handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char* interface){
+  /* check length */
+ if(len < sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t)) {
+    fprintf(stderr, "ERROR: ARP Packet length less than minimum length, exit\n");
+    return;
+  }
+  print_hdrs(packet, len);
+
+  /* process arp header */
+  struct sr_arp_hdr* arp_hdr = packet + sizeof(sr_ethernet_hdr_t);
+  struct sr_if* iface_rec = sr_get_interface(sr, interface);
+
+  if(!iface_rec){
+    fprintf(stderr, "ERROR: sr_handle_arp, interface record not found\n");
+    return;
+  }
+  /* save to cache */
+  if(iface_rec->ip == packet->ar_tip){
+    struct sr_arpreq* arp_req = sr_arpcache_insert(&(sr->cache), arp->ar_sha, arp->ar_sip);
+    if(arp_req){
+      /* record found, store my informaion to the arp cache */
+
+      struct sr_packet* pkt_cur = req->packets;
+      while(pkt_cur){
+        sr_send_packet_helper(sr, pkt_cur->buf, pkt_cur->len, pkt_cur->iface,req->ip);
+        /* helper 7 called */
+        pkt_cur = pkt_cur->next;
+
+      }
+      sr_arpreq_destroy(&(sr->cache), req);
+
+      if(ntohs(arp_hdr->ar_op) == arp_op_request)
+        sr_send_arp(sr, arp_op_reply, interface, arp_hdr->ar_sha, arp_hdr->sip);
+        /* helper 2 called */
+    }
+  }
+} /*---helper 11: sr_handle_srp---*/
+/* ****** Pseudo-code in sr_arpcache.h **********************
 function handle_arpreq(req):
        if difftime(now, req->sent) > 1.0
            if req->times_sent >= 5:
@@ -578,7 +633,7 @@ void sr_handlepacket(struct sr_instance* sr,
   } else if(pkt_type == ethertype_arp){
 
     /* handle arp packet */
-    sr_handle_arp(sr, packet, len, interface); /* helper X called */
+    sr_handle_arp(sr, packet, len, interface); /* helper 11 called */
 
   } else { 
 
