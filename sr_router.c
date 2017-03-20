@@ -75,7 +75,7 @@ void sr_send_packet_helper(struct sr_instance* sr, uint8_t* buf, unsigned int le
  * struct sr_rt : a matched routing table in sr that matches ip dst
  */
 struct sr_rt* longest_prefix_match(struct sr_instance* sr, uint32_t dst){
-  struct sr_rt* cur = sr->routing_table
+  struct sr_rt* cur = sr->routing_table;
   struct sr_rt* ret = NULL;
 
   struct in_addr max_mask;
@@ -113,7 +113,7 @@ void sr_send_ip_pkt(struct sr_instance* sr, uint8_t* buf, unsigned int len, uint
     fprintf(stderr, "ERROR: sr_send_ip_pkt, longest_prefix_match returns NULL\n");
     return;
   }
-  struct sr_if* iface sr_get_interface(sr, rt_cur->interface);
+  struct sr_if* iface = sr_get_interface(sr, rt_cur->interface);
   if(!iface){
     fprintf(stderr, "ERROR: sr_send_ip_pkt, sr_get_interface returns NULL\n");
     return;
@@ -125,7 +125,7 @@ void sr_send_ip_pkt(struct sr_instance* sr, uint8_t* buf, unsigned int len, uint
   memcpy(ip + 1, buf, len);
   /* write ip_hdr */
   ip->ip_hl = IP_HDR_MIN;
-  ip->ip_v = ip_v;
+  ip->ip_v = 4;
 
   ip->ip_len = htons(sizeof(sr_ip_hdr_t) + len);
   ip->ip_off = htons(IP_DF);
@@ -138,7 +138,7 @@ void sr_send_ip_pkt(struct sr_instance* sr, uint8_t* buf, unsigned int len, uint
   ip->ip_dst = dest;
   /* write sr_ethernet_hdr_t */
   ether->ether_type = htons(ethertype_ip);
-  memcpy(eth->ether_shost, if_node->addr, ETHER_ADDR_LEN);
+  memcpy(ether->ether_shost, iface->addr, ETHER_ADDR_LEN);
 
   /* send */
   sr_send_packet_helper(sr, (uint8_t *) ether, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + len,
@@ -193,7 +193,7 @@ void sr_send_icmp_t3(struct sr_instance* sr, struct sr_packet* pkt, enum sr_icmp
  * P.S.:
  * look for sr_send_packet in sr_vns_comm.c
  */
-  void sr_send_ether(struct sr_instance sr, uint8_t hdr, char* iface, uint8_t* target_addr, enum sr_ethertype etype){
+  void sr_send_ether(struct sr_instance* sr, uint8_t hdr, char* iface, uint8_t* target_addr, enum sr_ethertype etype){
     
     /* prepare ethernet header ether_hdr */
     sr_ethernet_hdr_t* ether_hdr = malloc(sizeof(sr_ethernet_hdr_t));
@@ -209,7 +209,7 @@ void sr_send_icmp_t3(struct sr_instance* sr, struct sr_packet* pkt, enum sr_icmp
       if_cur = if_cur->next;
     }
     if(!ether_hdr->ether_shost){
-      fprintf(stderr, "ERROR: sr_send_ether, iface is not in sr if_list\n", );
+      fprintf(stderr, "ERROR: sr_send_ether, iface is not in sr if_list\n");
       return;
     }
 
@@ -219,7 +219,7 @@ void sr_send_icmp_t3(struct sr_instance* sr, struct sr_packet* pkt, enum sr_icmp
     memcpy(big_hdr + sizeof(sr_ethernet_hdr_t), hdr, sizeof(hdr));
     
     /* send */
-    sr_send_packet(sr, eth, (uint8_t *) (sizeof(hdr) + sizeof(sr_ethernet_hdr_t)), iface);
+    sr_send_packet(sr, big_hdr, (uint8_t *) (sizeof(hdr) + sizeof(sr_ethernet_hdr_t)), iface);
 
     /* free */
     free(ether_hdr);
@@ -317,14 +317,14 @@ void sr_send_icmp(struct sr_instance* sr, struct sr_packet* pkt, enum sr_icmp_ty
 
   /* prepare icmp */
   struct sr_icmp_hdr* icmp = calloc(icmp_len, 1);
-  memcpy(icmp + 1, buf, icmp_len - sizeof(sr_icmp_hdr_t));
+  memcpy(icmp + 1, ip_hdr, icmp_len - sizeof(sr_icmp_hdr_t));
   icmp->icmp_type = type;
   icmp->icmp_code = code;
   icmp->icmp_sum = 0;
   icmp->icmp_sum = cksum(icmp, icmp_len);
 
   /* send */
-  sr_send_ip_pkt(sr, icmp, icmp_len, ip_hdr->ip_dst, ip_hdr->src);
+  sr_send_ip_pkt(sr, icmp, icmp_len, ip_hdr->ip_dst, ip_hdr->ip_src);
 
   /* free */
   free(icmp);
@@ -342,7 +342,7 @@ void sr_send_icmp(struct sr_instance* sr, struct sr_packet* pkt, enum sr_icmp_ty
  * 3. O.w. ignore
  */
 
- void sr_handle_ip_router(struct sr_instance* sr, struct sr_packet pkt){
+ void sr_handle_ip_router(struct sr_instance* sr, struct sr_packet* pkt){
   sr_ip_hdr_t* hdr = pkt + sizeof(sr_ethernet_hdr_t);
   unsigned int len = hdr->ip_hl * 4;
   uint8_t* payload = ((uint8_t *) hdr) + len;
@@ -391,7 +391,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * pkt, unsigned int len, char*
     fprintf(stderr, "ERROR: IP Packet length less than minimum length, exit\n");
     return;
   }
-  print_hdrs(packet, len);
+  print_hdrs(pkt, len);
 
   sr_ip_hdr_t *ip_hdr = pkt + sizeof(sr_ethernet_hdr_t);
   unsigned int ip_hdr_len = ip_hdr->ip_hl * 4;
@@ -442,7 +442,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * pkt, unsigned int len, char*
       return;
     }
 
-    memcpy(tmp, packet, len);
+    memcpy(tmp, pkt, len);
     struct sr_ethernet_hdr* ether_hdr = (sr_ethernet_hdr_t *) tmp;
     struct sr_if* iface = sr_get_interface(sr, lpm->interface);
     memcpy(ether_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
@@ -456,7 +456,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * pkt, unsigned int len, char*
   } else {
     fprintf(stderr, "ERROR: no routing table for the ip, sending icmp...\n");
     struct sr_if* iface = sr_get_interface(sr, interface);
-    sr_send_icmp_t3(sr, packet, icmp_type_unreachable, icmp_code_net_unreach);
+    sr_send_icmp_t3(sr, pkt, icmp_type_unreachable, icmp_code_net_unreach);
     /* helper 4 called */
   }
 
@@ -492,22 +492,22 @@ void sr_handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, ch
     return;
   }
   /* save to cache */
-  if(iface_rec->ip == packet->ar_tip){
-    struct sr_arpreq* arp_req = sr_arpcache_insert(&(sr->cache), arp->ar_sha, arp->ar_sip);
+  if(iface_rec->ip == arp_hdr->ar_tip){
+    struct sr_arpreq* arp_req = sr_arpcache_insert(&(sr->cache), arp_hdr->ar_sha, arp_hdr->ar_sip);
     if(arp_req){
       /* record found, store my informaion to the arp cache */
 
-      struct sr_packet* pkt_cur = req->packets;
+      struct sr_packet* pkt_cur = arp_req->packets;
       while(pkt_cur){
-        sr_send_packet_helper(sr, pkt_cur->buf, pkt_cur->len, pkt_cur->iface,req->ip);
+        sr_send_packet_helper(sr, pkt_cur->buf, pkt_cur->len, pkt_cur->iface, arp_req->ip);
         /* helper 7 called */
         pkt_cur = pkt_cur->next;
 
       }
-      sr_arpreq_destroy(&(sr->cache), req);
+      sr_arpreq_destroy(&(sr->cache), arp_req);
 
       if(ntohs(arp_hdr->ar_op) == arp_op_request)
-        sr_send_arp(sr, arp_op_reply, interface, arp_hdr->ar_sha, arp_hdr->sip);
+        sr_send_arp(sr, arp_op_reply, interface, arp_hdr->ar_sha, arp_hdr->ar_sip);
         /* helper 2 called */
     }
   }
@@ -542,13 +542,13 @@ void handle_arpreq(struct sr_instance* sr, struct sr_arpreq *req){
     if(difftime(time_cur, req->sent) > 1.0){
       if(req->times_sent >= 5){
 
-        fprintf(stderr, "ERROR: request sent 5 times, sending icmp unreachable and destroying\n", );
+        fprintf(stderr, "ERROR: request sent 5 times, sending icmp unreachable and destroying\n");
         
         /* send icmp host unreachable to source addr of all pkts waiting on this request */
         struct sr_packet* pkts_cur = req->packets;
 
         while(pkts_cur){
-          sr_send_icmp_t3(sr, pkts_cur, icmp_unreachable, icmp_code_host_unreach); /* helper4 called */
+          sr_send_icmp_t3(sr, pkts_cur, icmp_type_unreachable, icmp_code_host_unreach); /* helper4 called */
           pkts_cur = pkts_cur->next;
         }
 
@@ -558,7 +558,7 @@ void handle_arpreq(struct sr_instance* sr, struct sr_arpreq *req){
       /* send arp req */
       sr_send_arp_req(sr, req->ip); /* helper1 is called */
 
-      req->sent = now;
+      req->sent = time_cur;
       req->times_sent++;
     }
   }
