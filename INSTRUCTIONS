@@ -31,13 +31,13 @@ but the nodes will be arranged identically):
                                          Application Server 2
 
 
-To connect to a topology, first compile the stub code.
-Then, you can invoke sr as follows:
+To connect to a topology, first you should compile the stub code.
+Then you can invoke sr as follows:
 
   $ ./sr
 
-By default, ./sr will connect to the mininet controller on localhost.
-If you would like to run "sr" remotely, invoke sr as follows:
+By default, after typing ./sr the program will connect to the mininet controller on localhost.
+If you would like to run "sr" remotely, you should invoke sr as follows:
 
   $ ./sr -s <controller_ip>
 
@@ -78,7 +78,7 @@ addresses).  Your routing table (stored in rtable.vrhost) will be automatically
 updated by the stub code.
 
 Please verify that you can see packets arriving to your topology when you try
-and ping one of your router interfaces.  To do this, connect to your topology as
+and ping one of your router interfaces.  To do this, you should connect to your topology as
 described above and try and ping eth0 (e.g., 171.67.238.32 in this example).
 
  $ ping 171.67.238.32
